@@ -18,5 +18,6 @@ src -- 源码目录
 |-- component -- 前端页面
 ```
 
+[Apache License 2.0](https://github.com/exview/IM_Online_web/blob/master/LICENSE)
 
 Copyright (c) 2020 silverspoon
