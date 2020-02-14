@@ -22,7 +22,7 @@ export const routerMap = [
         meta: {
             requireAuth: true
         },
-        redirect: '/home/recent',
+        //redirect: '/home/recent',
         component: ()=> import('@/components/Home.vue'),
         children: [{
             path: '/home/recent',

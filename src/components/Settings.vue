@@ -1,6 +1,6 @@
 <template>
     <el-card class="settings">
-        <img style="margin-top: 160px" src="../assets/logo.png">
+        <img style="margin-top: 160px; width: 240px; height: 240px; border-radius: 120px" :src="this.$store.getters.user.avatar">
         <h2>作者： masiroonen@gmail.com</h2>
         <h2>github地址： https://github.com/exview</h2>
         <h2>版本号： 1.0</h2>

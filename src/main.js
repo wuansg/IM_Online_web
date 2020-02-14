@@ -6,7 +6,7 @@ import {
   Form,
   FormItem,
   Input,
-  Link,
+  Link, Loading,
   Menu,
   MenuItem, Pagination, Radio,
   RadioGroup,
@@ -15,6 +15,7 @@ import {
   Upload
 } from 'element-ui'
 import App from './App.vue'
+import VueCropper from 'vue-cropper'
 
 import router from "./router/router";
 import store from "./store/store";
@@ -37,6 +38,8 @@ Vue.use(Divider);
 Vue.use(Dialog);
 Vue.use(Pagination);
 Vue.use(Badge);
+Vue.use(Loading);
+Vue.use(VueCropper);
 
 Vue.config.productionTip = false;
 

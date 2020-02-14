@@ -6,6 +6,7 @@
                     placeholder="搜索好友"
                     prefix-icon="el-icon-search"
                     class="search_input"
+                    v-model="keyword"
                     clearable
                     />
                 <el-button class="search-button" type="primary" icon="el-icon-plus" plain @click="adds"/>
@@ -13,11 +14,11 @@
                 <el-button class="requests" type="primary" icon="el-icon-more" plain @click="openRequest"/>
                 </el-badge>
             </div>
-            <el-scrollbar class="friends-scrollbar">
+            <el-scrollbar class="friends-scrollbar" v-loading="loading">
                 <ul>
-                    <li v-for="(friend, index) in friends" :key="friend.id" @click="current = index"
+                    <li v-for="(friend, index) in friends.content" :key="friend.id" @click="current = index"
                             :class="checkIndex(index)?'touch':''">
-                        <img :src="friend.avator">
+                        <img :src="friend.avatar"/>
                         <h3 class="username">{{ friend.username }} </h3>
                         <p class="signature">{{ friend.signature }}</p>
                         <el-divider/>
@@ -26,9 +27,9 @@
             </el-scrollbar>
         </div>
         <div class="friends-body" v-if="current !== -1">
-            <img :src="friends[current].avator"/>
-            <h1>{{ friends[current].username }}</h1>
-            <p>{{ friends[current].signature }}</p>
+            <img :src="friends.content[current].avatar"/>
+            <h1>{{ friends.content[current].username }}</h1>
+            <p>{{ friends.content[current].signature }}</p>
 
             <el-button type="primary" class="open-message" icon="el-icon-chat-dot-round" @click="redirectToMessage" circle/>
         </div>
@@ -36,8 +37,9 @@
         <el-dialog title="添加好友" :visible.sync="dialogVisible" class="friends-add" style="text-align: left">
             <el-input clearable prefix-icon="el-icon-search" placeholder="输入用户名进行检索" v-model="searchKeyword"
                 @keypress.enter.native="adds"/>
-            <el-card v-for="user in userBySearch" :key="user.uuid" style="width: 200px; display:inline-block; margin: 10px 8px" >
-                <img :src="user.avatar"/>
+            <div v-loading="searchLoading">
+            <el-card v-for="user in userBySearch.content" :key="user.uuid" style="width: 200px; display:inline-block; margin: 10px 8px">
+                <img :src="user.avatar" style="width: 200px; height: 200px"/>
                 <div style="padding: 14px">
                     <span>{{user.username}}</span>
                     <div class="bottom clearfix">
@@ -47,15 +49,16 @@
                     </div>
                 </div>
             </el-card>
-            <el-pagination style="text-align: center"
+            <el-pagination style="text-align: center" :page-size="8"
                     background
-                    layout="prev, pager, next"
-                    :total="userBySearch.length">
+                    layout="total, prev, pager, next"
+                    :total="userBySearch.totalElements" @current-change="currentChange">
             </el-pagination>
+            </div>
         </el-dialog>
         <el-dialog title="好友请求" :visible.sync="moreVisible" >
-            <el-card v-for="o in requests" :key="o.uuid" style="width: 200px; display:inline-block; margin: 10px 10px">
-                <img :src="o.requestUser.avatar"/>
+            <el-card v-for="o in requests.content" :key="o.uuid" style="width: 200px; display:inline-block; margin: 10px 10px">
+                <img :src="o.requestUser.avatar" />
                 <div>
                     <span>{{o.requestUser.username}}</span>
                     <el-button class="o.uuid" type="primary" plain @click="acceptRequest(o)">同意</el-button>
@@ -64,8 +67,8 @@
             </el-card>
             <el-pagination style="text-align: center"
                            background
-                           layout="prev, pager, next"
-                           :total="requests.length"/>
+                           layout="total, prev, pager, next"
+                           :total="requests.totalElements" @current_change="currentChangeOfRequest"/>
         </el-dialog>
     </el-card>
 </template>
@@ -74,49 +77,44 @@
     import {getFriends, addFriend, getRequests, accept, reject} from "../api/friends";
     import {searchUser} from "../api/user";
     import {Notification} from 'element-ui'
+    import {FRIENDS, RECENT_CURRENT, RECENTMESSAGES, UPDATE_COMPONENT, UPDATE_MENU} from "../utils/constant";
 
     export default {
         name: "Friends",
         data() {
             return {
+                pageNum: 0,
+                loading: false,
+                keyword: '',
                 dialogVisible: false,
                 moreVisible: false,
-                friendsKey: 'friends',
                 user: this.$store.getters.user,
                 friends: null,
                 searchKeyword: '',
+                searchLoading: false,
                 requests: [],
-                // friends: [
-                //     {
-                //         uuid: '',
-                //         avatar: '',
-                //         username: '',
-                //         signature: ''
-                //     }
-                // ],
                 current: -1,
-                userBySearch: [{
-                    uuid:"1",
-                    username: "text",
-                    avatar: "favicon.ico",
-                    signature: "i want a good job."
-                }]
+                userBySearch: []
             }
         },
         methods: {
             getFriendList() {
                 if (this.friends === null) {
-                    this.friends = JSON.parse(sessionStorage.getItem(this.friendsKey));
+                    this.friends = JSON.parse(sessionStorage.getItem(FRIENDS));
                     if (this.friends === null) {
-                        let uuid = this.user.UUID;
+                        let data = {};
+                        data['uuid'] = this.user.UUID;
+                        data['pageNum'] = 0;
+                        data['pageSize'] = 20;
                         new Promise((resolve, reject) => {
-                            getFriends(uuid).then(response => {
+                            getFriends(data).then(response => {
                                 if (response.data.code === 200) {
+                                    // eslint-disable-next-line no-console
                                     this.friends = response.data.data;
                                 } else {
                                     alert(response.data.data);
                                 }
-                                sessionStorage.setItem(this.friendsKey, JSON.stringify(response.data.data));
+                                sessionStorage.setItem(FRIENDS, JSON.stringify(response.data.data));
                                 resolve()
                             }).catch(error => {
                                 reject(error);
@@ -127,29 +125,36 @@
             },
             getFriendRequests() {
                 new Promise((resolve,reject) => {
-                    getRequests(this.user.UUID).then(response=> {
+                    let data = {};
+                    data['uuid'] = this.user.UUID;
+                    data['pageNum'] = 0;
+                    data['pageSize'] = 8;
+                    getRequests(data).then(response=> {
                         let data = response.data;
                         if (data.code === 200) {
                             this.requests = data.data;
+                            if (this.requests !== null && this.requests.length > 0)
+                                this.$emit(UPDATE_MENU);
                         }
                         resolve();
                     }).catch(error => {
+                        Notification.error({
+                            title: '获取好友请求出错',
+                            message: '网络异常: '+error
+                        });
                         reject(error);
                     })
                 });
-                if (this.requests === null) {
-                    this.requests = []
-                }
             },
             redirectToMessage() {
-                let recentMessages = JSON.parse(sessionStorage.getItem("recentMessages"));
+                let recentMessages = JSON.parse(sessionStorage.getItem(RECENTMESSAGES));
                 if (recentMessages !== null) {
-                    let index = recentMessages.findIndex(element => element.userID === this.friends[this.current].uuid);
+                    let index = recentMessages.findIndex(element => element.userID === this.friends.content[this.current].uuid);
                     if (index === -1) {
                         recentMessages.unshift({
-                            userID: this.friends[this.current].uuid,
-                            avatar: this.friends[this.current].avatar,
-                            username: this.friends[this.current].username,
+                            userID: this.friends.content[this.current].uuid,
+                            avatar: this.friends.content[this.current].avatar,
+                            username: this.friends.content[this.current].username,
                             messageList: []
                         })
                     } else {
@@ -160,37 +165,44 @@
                 }else {
                     recentMessages = [
                         {
-                            userID: this.friends[this.current].uuid,
-                            avatar: this.friends[this.current].avatar,
-                            username: this.friends[this.current].username,
+                            userID: this.friends.content[this.current].uuid,
+                            avatar: this.friends.content[this.current].avatar,
+                            username: this.friends.content[this.current].username,
                             messageList: []
                         }
                     ]
                 }
-                sessionStorage.setItem("recentMessages", JSON.stringify(recentMessages));
-                sessionStorage.setItem("recent_current", 0);
-                // this.$store.dispatch('CHANGE_USERID', { userID: this.friends[this.current].uuid });
-                this.$router.push({
-                    path: '/home/recent'
-                    // query: { userID: this.friends[this.current].uuid }
-                })
+                sessionStorage.setItem(RECENTMESSAGES, JSON.stringify(recentMessages));
+                sessionStorage.setItem(RECENT_CURRENT, 0);
+                this.$emit(UPDATE_COMPONENT, 0);
             },
             openRequest() {
-                 this.moreVisible = true;
+                this.moreVisible = true;
             },
             checkIndex(index) {
                 return index === this.current;
             },
             adds() {
                 this.dialogVisible = true;
+                let data = {};
+                data['pageNum'] = 0;
+                data['pageSize'] = 8;
+                data['keyword'] = this.searchKeyword;
                 new Promise((resolve, reject) => {
-                    searchUser(this.searchKeyword).then((response) => {
+                    searchUser(data).then((response) => {
                         let data = response.data;
                         if (data.code === 200) {
                             this.userBySearch = data.data;
                         }
+                        else {
+                            Notification.error(data.data);
+                        }
                         resolve()
                     }).catch(error => {
+                        Notification.error({
+                            title: '获取用户列表出错',
+                            message: '网络异常: '+error
+                        });
                         reject(error);
                     })
                 })
@@ -201,10 +213,6 @@
                         title: 'Notification',
                         message: '无法添加自己'
                     });
-                    // this.$notify({
-                    //     title: 'Notification',
-                    //     message: '無法添加自己'
-                    // });
                     return;
                 }
                 let data = {};
@@ -227,6 +235,10 @@
                         }
                         resolve()
                     }).catch(error => {
+                        Notification.error({
+                            title: '添加好友请求发送出错',
+                            message: '网络异常: '+error
+                        });
                         reject(error);
                     })
                 })
@@ -240,10 +252,9 @@
                                 title:'通知',
                                 message: '成功'
                             });
-                            //this.$el.querySelector('.'+data.uuid).disabled=true;
                             this.requests.splice(this.requests.findIndex(o => o.uuid === data.uuid), 1);
                             this.friends.push(data.requestUser);
-                            sessionStorage.setItem(this.friendsKey, this.friends);
+                            sessionStorage.setItem(FRIENDS, JSON.stringify(this.friends));
                         }else {
                             Notification.error({
                                 title:'通知',
@@ -252,6 +263,10 @@
                         }
                         resolve()
                     }).catch(error=>{
+                        Notification.error({
+                            title: '好友请求同意发送失败',
+                            message:"网络异常: "+error
+                        });
                         reject(error);
                     })
                 })
@@ -273,6 +288,51 @@
                             })
                         }
                         resolve();
+                    }).catch(error => {
+                        Notification.error({
+                            title: '好友请求拒绝发送失败',
+                            message: '网络异常'+error
+                        });
+                    })
+                })
+            },
+            currentChange(currentPage) {
+                let data = {};
+                data['pageSize'] = 8;
+                data['pageNum'] = currentPage;
+                data['keyword'] = this.searchKeyword;
+                new Promise((resolve, reject) => {
+                    searchUser(data).then(response =>{
+                        let result = response.data;
+                        if (result.code === 200) {
+                            this.userBySearch = result.data;
+                        }else {
+                            Notification.error(result.data);
+                        }
+                        resolve()
+                    }).catch(error =>{
+                        Notification.error(error);
+                        reject(error);
+                    })
+                })
+            },
+            currentChangeOfRequest(currentPage) {
+                let data = {};
+                data['uuid'] = this.user.UUID;
+                data['pageSize'] = 8;
+                data['pageNum'] = currentPage;
+                new Promise((resolve, reject) => {
+                    getRequests(data).then(response =>{
+                        let result = response.data;
+                        if (result.code === 200) {
+                            this.requests = result.data;
+                        }else {
+                            Notification.error(result.data);
+                        }
+                        resolve()
+                    }).catch(error =>{
+                        Notification.error(error);
+                        reject(error);
                     })
                 })
             }
@@ -282,23 +342,88 @@
             this.getFriendRequests();
             this.default_active = "1";
         },
+        watch: {
+            keyword: function (newValue) {
+                this.loading = true;
+                let data = {};
+                data['keyword'] = newValue;
+                data['pageNum'] = 0;
+                data['pageSize'] = 20;
+                new Promise((resolve, reject) => {
+                    searchUser(data).then((response) => {
+                        let result = response.data;
+                        if (result.code === 200) {
+                            this.userBySearch = result.data === null ? [] : result.data;
+                        }
+                        else {
+                            Notification.error(result.data);
+                        }
+                        this.loading = false;
+                        resolve()
+                    }).catch(error => {
+                        Notification.error({
+                            title: '获取用户列表出错',
+                            message: '网络异常: '+error
+                        });
+                        this.loading = false;
+                        reject(error);
+                    })
+                });
+                this.loading = false;
+            },
+            searchKeyword: function (newValue) {
+                this.searchLoading = true;
+                let data = {};
+                data['keyword'] = newValue;
+                data['pageNum'] = 0;
+                data['pageSize'] = 8;
+                new Promise((resolve, reject) => {
+                    searchUser(data).then((response) => {
+                        let data = response.data;
+                        if (data.code === 200) {
+                            this.userBySearch = data.data;
+                        }
+                        else {
+                            Notification.error(data.data);
+                        }
+                        this.searchLoading = false;
+                        resolve()
+                    }).catch(error => {
+                        Notification.error({
+                            title: '获取用户列表出错',
+                            message: '网络异常: '+error
+                        });
+                        this.searchLoading = false;
+                        reject(error);
+                    })
+                });
+                this.searchLoading = false;
+            }
+        },
         mounted() {
             let time = 3000;
             setInterval(() => {
+                let data = {};
+                data['uuid'] = this.user.UUID;
+                data['pageNum'] = 0;
+                data['pageSize'] = 8;
                 new Promise((resolve,reject) => {
-                    getRequests(this.user.UUID).then(response=> {
+                    getRequests(data).then(response=> {
                         let data = response.data;
                         if (data.code === 200) {
                             this.requests = data.data;
+                            if (this.requests === null || this.requests.length <= 0) {
+                                this.requests = []
+                            }else {
+                                this.$emit(UPDATE_MENU);
+                            }
                         }
                         resolve();
                     }).catch(error => {
                         reject(error);
                     })
                 });
-                if (this.requests === null || this.requests.length <= 0) {
-                    this.requests = []
-                }
+                this.getFriendList()
             }, time)
         }
     }
@@ -310,21 +435,6 @@
         margin: 0;
         padding: 0;
         border: 0;
-    }
-    .friendstr-enter-active, .friendstr-leave-active {
-        transition: all 1s;
-    }
-    .friendstr-leave-to {
-        opacity: 0;
-        transform: translateY(720px);
-    }
-    .friendstr-enter {
-        opacity: 0;
-        transform: translateY(0);
-    }
-    .friendstr-enter-to {
-        opacity: 1;
-        transform: translateY(720px);
     }
     .friends {
         height: 720px;
@@ -364,6 +474,7 @@
         display: flex;
     }
     /deep/ .el-scrollbar__wrap {
+        width: 110%;
         overflow-x: hidden;
     }
     .friends-aside ul {

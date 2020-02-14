@@ -1,15 +1,27 @@
 <template>
     <el-card class="recent">
         <div class="recent-aside">
-            <el-scrollbar class="recent-scrollbar">
+            <div class="recent-search">
+                <el-input
+                        placeholder="搜索聊天内容"
+                        prefix-icon="el-icon-search"
+                        class="search_input"
+                        v-model="keyword"
+                        clearable
+                />
+            </div>
+            <el-scrollbar class="recent-scrollbar" v-loading="loading">
                 <ul>
                     <li v-for="(record, index) in recentMessages" :key="record.userID" @click="changeCurrent(index)"
                         :class="checkIndex(index)?'touch':''">
-                        <img :src="record.avatar"/>
+                        <el-divider/>
+                        <img :src="record.avatar" />
 <!--                        <img src="../assets/logo.png">-->
                         <h3 class="username">{{ record.username }}</h3>
                         <p class="last-message">{{ (record.messageList!== null&&record.messageList.length>0)?record.messageList[record.messageList.length-1].content:''}}</p>
-                        <el-divider/>
+                        <el-badge :value="record.count === undefined ? 0:record.count" style="margin-top: 20px"
+                            :hidden="record.count === undefined || record.count <= 0">
+                        </el-badge>
                     </li>
                 </ul>
             </el-scrollbar>
@@ -22,17 +34,14 @@
                 <span>{{ recentMessages[current].username }}</span>
             </div>
             <div class="message-box">
+                <el-link @click="getMoreMessages">查看更多消息</el-link>
                 <el-scrollbar class="message-scrollbar" ref="message-scrollbar">
                 <ul>
-<!--                    <li v-for="record in (recentMessages[current].messageList)" v-bind:key="record.UUID" >-->
-<!--                        <p :class="[checkType(record)?'from':'to']">{{ checkType(record)? recentMessages[current].username:user.username }}, {{ record.time }}</p>-->
-<!--                        <p class="content">{{ record.content }}</p>-->
-<!--                    </li>-->
                     <li v-for="record in (recentMessages[current].messageList)" v-bind:key="record.UUID">
                         <p class="message-time">{{ record.time }}</p>
                         <div :class="checkType(record)?'from':'to'">
                             <p class="content" v-if="!checkType(record)">{{ record.content }}</p>
-                            <img :src="record.avatar" style="width: 28px; height: 28px;"/>
+                            <img :src="record.avatar" style="width: 40px; height: 40px;"/>
                             <p  class="content" v-if="checkType(record)">{{ record.content }}</p>
                         </div>
                     </li>
@@ -59,66 +68,60 @@
 
 <script>
     import { addMessage, getMessagesInterval} from "../api/recent";
+    import {Message, Notification} from 'element-ui'
+    import {RECENT_CURRENT, RECENTMESSAGES, UPDATE_MENU} from "../utils/constant";
 
     export default {
         name: "Recent.vue",
         data() {
             return {
-                currentKey: "recent_current",
-                recentKey: "recentMessages",
+                keyword: '',
+                loading: false,
                 current: -1,
                 text: '',
                 user: this.$store.getters.user,
                 recentMessages: null
-                // recentMessages: [{
-                //     userID: '',
-                //     avatar: '',
-                //     username: '',
-                //     messageList: [{
-                //         UUID: '',
-                //         SenderID: '',
-                //         ReceiverID: '',
-                //         type: 1,
-                //         status: 0,
-                //         content: '',
-                //         time: ''
-                //     }]
-                // }]
             }
         },
         methods: {
             checkType(record) {
-                // eslint-disable-next-line no-console
                 return record.senderID === this.recentMessages[this.current].userID;
-
             },
             checkIndex(index) {
                 return index === this.current;
-
             },
             changeCurrent(index) {
                 this.current = index;
-                sessionStorage.setItem(this.currentKey, index);
+                this.recentMessages[this.current].count = 0;
+                sessionStorage.setItem(RECENT_CURRENT, index);
+                sessionStorage.setItem(RECENTMESSAGES, JSON.stringify(this.recentMessages));
             },
             SendFiles() {
 
             },
             SendMessage() {
+                if (this.text.trim() === ''){
+                    Message.info('内容为空');
+                    this.text = '';
+                    return;
+                }
                 let data = {
                     senderID: this.user.UUID,
                     receiverID: this.recentMessages[this.current].userID,
                     type: 1,
                     status: 0,
-                    content: this.text.trim()
+                    time: new Date(),
+                    content: this.text.trim(),
+                    loading: true
                 };
-                // eslint-disable-next-line no-console
-                console.log(this.recentMessages);
-                new Promise((resolver, reject) => {
+                this.text = '';
+                new Promise((resolve, reject) => {
                     addMessage(data).then(response => {
                         this.recentMessages[this.current].messageList.push(response.data.data);
-                        // sessionStorage.setItem(this.recentKey, JSON.stringify(this.recentMessages));
-                        resolver();
+                        sessionStorage.setItem(RECENTMESSAGES, JSON.stringify(this.recentMessages));
+                        resolve();
                     }).catch(error => {
+                        Notification.error('网络异常');
                         reject(error);
                     })
                 });
@@ -128,24 +131,23 @@
                     this.recentMessages.unshift(recentMessage);
                     this.current = 0;
                 }
-                // eslint-disable-next-line no-console
-                console.log(this.recentMessages);
-                sessionStorage.setItem(this.recentKey, this.recentMessages);
-                // this.recentMessages[this.current].messageList.push(data);
-                // sessionStorage.setItem(this.recentKey, JSON.stringify(this.recentMessages));
-                this.text = '';
             },
             getRecentList() {
                 if (this.recentMessages === null) {
-                    this.recentMessages = JSON.parse(sessionStorage.getItem(this.recentKey));
+                    this.recentMessages = JSON.parse(sessionStorage.getItem(RECENTMESSAGES));
                     if (this.recentMessages === null) {
                         new Promise((resolve, reject) => {
                             let user = this.$store.getters.user;
                             getMessagesInterval(user.UUID).then(response => {
                                 this.recentMessages = response.data.data;
+                                this.recentMessages.forEach(o => {
+                                    o.count = o.messageList.length;
+                                });
+                                if (this.recentMessages.length > 0)
+                                    this.$emit(UPDATE_MENU);
                                 // eslint-disable-next-line no-console
                                 // console.log(response.data.data);
-                                sessionStorage.setItem("recentMessages", JSON.stringify(response.data.data));
+                                sessionStorage.setItem(RECENTMESSAGES, JSON.stringify(response.data.data));
                                 resolve();
                             }).catch(error => {
                                 reject(error);
@@ -154,13 +156,29 @@
                     }
                 }
             },
+            getMoreMessages(){
+            },
             chat() {
                 this.$refs['message-scrollbar'].wrap.scrollTop = this.$refs['message-scrollbar'].wrap.scrollHeight;
             }
         },
+        watch: {
+            keyword: function (newValue) {
+                this.loading=true;
+                new Promise((resolve, reject) => {
+                    getMessagesInterval(newValue).then(response => {
+                        response;
+                        resolve()
+                    }).catch(error => {
+                        reject(error)
+                    })
+                });
+                this.loading = false;
+            }
+        },
         created() {
             this.getRecentList();
-            this.current = sessionStorage.getItem(this.currentKey);
+            this.current = sessionStorage.getItem(RECENT_CURRENT);
             if (this.current === null || this.recentMessages.length <= 0)
                 this.current = -1;
             // eslint-disable-next-line no-console
@@ -171,23 +189,17 @@
         },
         mounted() {
             setInterval(() => {
-                let recentMessages = this.recentMessages;
-                // recentMessages = JSON.parse(recentMessages);
-                // eslint-disable-next-line no-console
-                // console.log(this.user.UUID);
                 new Promise((resolve, reject) => {
                     getMessagesInterval(this.$store.getters.user.UUID).then(response => {
                         let data = response.data;
-                        // eslint-disable-next-line no-console
-                        // console.log(data);
-                        if (data.code === 200) {
+                        let recentMessages = this.recentMessages;
+                        if (data.code === 200 && data.data.length > 0) {
                             let unreads = data.data;
-                            // eslint-disable-next-line no-console
-                            // console.log(unreads);
                             unreads.forEach(unread => {
-                                let index = recentMessages.findIndex(element => element.userID == unread.userID);
+                                let index = recentMessages.findIndex(element => element.userID === unread.userID);
                                 if (index > 0) {
                                     let recentMessage = recentMessages[index];
+                                    recentMessage.count = recentMessage.messageList.length;
                                     unread.messageList.forEach(o => {
                                         recentMessage.messageList.push(o)
                                     });
@@ -195,21 +207,25 @@
                                     recentMessages.unshift(recentMessage);
                                 }else if (index === 0) {
                                     let recentMessage = recentMessages[index];
+                                    recentMessage.count = recentMessage.messageList.length;
                                     unread.messageList.forEach(o => {
                                         recentMessage.messageList.push(o)
                                     })
                                 }else {
+                                    unread.count = unread.messageList.length;
                                     recentMessages.unshift(unread)
                                 }
                             });
-                            sessionStorage.setItem("recentMessages", JSON.stringify(recentMessages));
+                            if (unreads.length > 0)
+                                this.$emit(UPDATE_MENU);
+                            sessionStorage.setItem(RECENTMESSAGES, JSON.stringify(recentMessages));
                         }
                         resolve()
                     }).catch(error => {
                         reject(error);
                     })
                 })
-            }, 10000);
+            }, 1500);
         }
     }
 
@@ -245,8 +261,11 @@
         border-top-left-radius: 10px;
         border-bottom-left-radius: 10px;
     }
+    .recent-search {
+        padding: 10px 6px;
+    }
     .recent-scrollbar {
-        height: 100%;
+        height: 660px;
         display: flex;
     }
     /deep/ .el-scrollbar__wrap {
@@ -278,7 +297,7 @@
         float: left;
         height: 32px;
         display: inline;
-        width: 220px;
+        width: 200px;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -312,7 +331,7 @@
         padding-bottom: 4px;
     }
     .message-scrollbar {
-        height: 100%;
+        height: 460px;
         width: 877px;
         display: flex;
     }
@@ -340,10 +359,14 @@
         text-align: right;
     }
     .content {
+        max-width: 400px;
+        white-space: normal;
+        word-break: break-all;
+        word-wrap: break-word;
         margin: 0 4px;
         padding: 0 5px;
-        font-size: x-large;
-        text-align: right;
+        font-size: large;
+        text-align: left;
         /*background-color: rgba(176,241,238,0.6);*/
         display: inline-block;
         border: 1px solid #FFFFFF;
@@ -379,5 +402,18 @@
     }
     img {
         border-radius: 32px;
+    }
+    /deep/ .el-loading-spinner .circular {
+        width: 24px;
+        height: 24px;
+    }
+    /deep/ .el-loading-mask {
+        position: absolute;
+        top: 24px;
+    }
+    .loading {
+        display: inline-block;
+        width: 30px;
+        height: 37px;
     }
 </style>

@@ -27,6 +27,9 @@
             </el-form-item>
             <el-button type="primary" style="margin-left: 155px;" @click="submit('user')">注册</el-button>
             <el-button @click="reset()">重置</el-button>
+            <div style="text-align: center" >
+                <el-link @click="$router.push({path:'/'})">已有账号?</el-link>
+            </div>
         </el-form>
     </el-card>
 </template>
@@ -91,9 +94,6 @@
                 this.$refs[form].validate((valid) => {
                     if (valid) {
                         this.user.sex = this.user.sex === '男' ? 0 : 1;
-                        // eslint-disable-next-line no-console
-                        console.log(this.user);
-                        // alert('submit!');
                         new Promise((resolve, reject) => {
                             register(this.user).then((response) => {
                                 let data = response.data;
@@ -101,7 +101,13 @@
                                     Notification.success({
                                         message: '注册成功',
                                         type: 'success'
-                                    })
+                                    });
+                                    this.$confirm('是否要返回登录','提示',{
+                                        confirmButtonText:'确定',
+                                        cancelButtonText: '取消'
+                                    }).then(()=>{
+                                        this.$router.push({path:'/'})
+                                    });
                                 }else {
                                     Notification.error({
                                         message: data.data,

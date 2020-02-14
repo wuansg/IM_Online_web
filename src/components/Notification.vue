@@ -10,7 +10,7 @@
 
 <script>
     export default {
-        name: "Notification",
+        name: "Notify",
         data() {
             return {
                 notification: []

@@ -2,7 +2,7 @@ import request from '@/utils/request'
 
 export function getFriends(data) {
     return request({
-        url: '/friends/' + data,
+        url: '/friends/' + data.uuid + "?pageNum="+data.pageNum + "&pageSize="+data.pageSize,
         method: 'get'
     })
 }
@@ -18,7 +18,7 @@ export function addFriend(data) {
 
 export function getRequests(data) {
     return request({
-        url: '/request/'+data,
+        url: '/request/'+data.uuid+"?pageNum="+data.pageNum + "&pageSize="+data.pageSize,
         method: 'get'
     })
 }

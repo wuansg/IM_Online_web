@@ -33,6 +33,8 @@
     import {login} from "../api/login";
     import {setCookies} from "../utils/auth";
     import {validateUsername} from "../utils/validate";
+    import {Notification} from 'element-ui'
+    import {ISLOGIN, SAVE_USER, USER} from "../utils/constant";
 
     export default {
         name: "Login",
@@ -71,9 +73,9 @@
                                     data.data['UUID'] = data.data['uuid'];
                                     delete data.data.uuid;
                                     setCookies(response.cookie);
-                                    sessionStorage.setItem("user", JSON.stringify(data.data));
-                                    sessionStorage.setItem("isLogin", true);
-                                    this.$store.dispatch("SAVE_USER", {user: data.data});
+                                    sessionStorage.setItem(USER, JSON.stringify(data.data));
+                                    sessionStorage.setItem(ISLOGIN, true);
+                                    this.$store.dispatch(SAVE_USER, {user: data.data});
                                     const redirect = decodeURIComponent(this.$route.query.redirect || '/home');
                                     this.$router.push({
                                         path: redirect
@@ -83,6 +85,8 @@
                                     this.error = response.data.data;
                                 }
                             }).catch(error => {
+                                this.error = '网络异常，请联系开发人员.';
+                                Notification.error('网络异常'+error);
                                 reject(error)
                             })
                         });
@@ -90,14 +94,6 @@
                         return false;
                     }
                 });
-                // // eslint-disable-next-line no-console
-                // console.log("登录成功.");
-                // let redirect = decodeURIComponent(this.$route.query.redirect || '/home');
-                // this.$store.dispatch("LOGIN", true);
-                // this.$router.push({
-                //     // eslint-disable-next-line no-undef
-                //     path: redirect
-                // })
             },
             Register() {
                 this.$router.push({
