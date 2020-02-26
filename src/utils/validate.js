@@ -1,3 +1,4 @@
+import {FILE_MAX_SIZE, PIC_MAX_SIZE} from "./constant";
 
 export function validateUsername(rule, value, callback) {
     if (value === '') {
@@ -32,10 +33,27 @@ export function validateEmail(rule, value, callback) {
     if (value === '') {
         callback(new Error('请输入邮箱'));
     }else {
-        const regex = new RegExp('[a-zA-Z0-9]+@[a-zA-Z0-9]+.[a-zA-Z0-9]+')
+        const regex = new RegExp('[a-zA-Z0-9]+@[a-zA-Z0-9]+.[a-zA-Z0-9]+');
         if (!regex.test(value)) {
             return callback(new Error('邮箱格式为XXX@XXX.XXX'));
         }
     }
     callback()
+}
+
+export function validatePic(file) {
+    if (file === null) {
+        return false
+    }
+    const type = file.type;
+    const regex = new RegExp('(image/png|image/jpeg|image/jpg)');
+    return regex.test(type);
+}
+
+export function validateFileSize(file) {
+    return !(file == null || file.size > FILE_MAX_SIZE);
+}
+
+export function validatePicSize(file) {
+    return !(file == null || file.size > PIC_MAX_SIZE);
 }

@@ -16,3 +16,8 @@ export function setCookie(key, value, expires) {
 export function getCookie(key) {
     return Cookies.get(key);
 }
+
+export function formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.getFullYear() + '-' + date.getMonth() + '-' + date.getDate() + ' ' + date.getHours() + ':' + date.getMinutes();
+}

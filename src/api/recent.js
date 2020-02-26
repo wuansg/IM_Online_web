@@ -29,3 +29,30 @@ export function getMessagesInterval(data) {
         method: 'get'
     })
 }
+
+export function postPic(data) {
+    return request({
+        url: '/message/pic',
+        method: 'post',
+        headers: {'Content-type': 'multipart/form-data'},
+        data: data
+    })
+}
+
+export function postFile(data) {
+    return request({
+        url: '/message/file',
+        method: 'post',
+        headers: {'Content-type': 'multipart/form-data'},
+        data: data
+    })
+}
+
+export function updateStatus(data) {
+    return request({
+        url: '/message/mark',
+        method: 'post',
+        headers: {'Content-type': 'application/json'},
+        data: data
+    })
+}

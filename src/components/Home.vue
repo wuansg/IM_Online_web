@@ -27,7 +27,7 @@
             </el-menu>
         </el-card>
         <div class="body">
-            <component v-on:update:menu="menus[current].hasNew = true" @update:component="changeComponent($event)"
+            <component @update:component="changeComponent($event)"
                        :menu="menus[current]" :is="currentComponent"/>
         </div>
         <div class="footer">
@@ -64,9 +64,20 @@
     import Recent from "./Recent";
     import Settings from "./Settings";
     import Notify from "./Notification";
-    import {FRIENDS, HOME_CURRENT, ISLOGIN, RECENT_CURRENT, RECENTMESSAGES, USER} from "../utils/constant";
+    import {
+        FRIENDS,
+        HOME_CURRENT,
+        ISLOGIN,
+        RECENT_CURRENT,
+        MESSAGES,
+        USER,
+        REQUESTS, IM_MESSAGE, IM_NOTIFICATION, NOTIFICATIONS
+    } from "../utils/constant";
     import {Message, Notification} from 'element-ui'
     import {updateAvatar} from "../api/user";
+    import {getMessagesInterval} from "../api/recent";
+    import {getFriends, getRequests} from "../api/friends";
+    import {getNotifications} from "../api/notification";
 
     export default {
         name: "Home.vue",
@@ -107,6 +118,7 @@
                         tab: Settings,
                         icon: "el-icon-info",
                         title: "关于",
+                        hasNew: false,
                         path: "/home/settings",
                     }
                 ],
@@ -128,7 +140,12 @@
                     centerBox: false, // 截图框是否被限制在图片里面
                     infoTrue: true // true 为展示真实输出图片宽高 false 展示看到的截图框宽高
                 },
-                loading: false
+                loading: false,
+                messages: null,
+                friends: null,
+                requests: null,
+                websocket: null,
+                notifications: null,
             };
         },
         computed: {
@@ -137,16 +154,100 @@
             }
         },
         methods: {
+            initwebsocket() {
+                const wsuri = "ws://localhost:8080/message/"+this.user.UUID;
+                this.websocket = new WebSocket(wsuri);
+                this.websocket.onmessage = this.websocketonmessage;
+                this.websocket.onclose = this.websocketonclose;
+                this.websocket.onerror = this.websocketonerror;
+                this.websocket.onopen = this.websocketonopen;
+            },
+            websocketonmessage(e) {
+                let result = JSON.parse(e.data);
+                // eslint-disable-next-line no-console
+                // console.log(e.data);
+                let data = result.data;
+                if (result.type === IM_MESSAGE) {
+                    let message = {
+                        userID: data.senderID,
+                        avatar: this.friends.content.find(o => o.uuid === data.senderID).avatar,
+                        username: this.friends.content.find(o => o.uuid === data.senderID).username,
+                        count: 1,
+                        messageList: [
+                            data
+                        ]
+                    };
+                    if (this.messages === null) {
+                        this.messages = message;
+                    } else {
+                        let index = this.messages.findIndex(o => o.userID === data.senderID);
+                        if (index >= 0) {
+                            message = this.messages[index];
+                            message.count++;
+                            message.messageList.push(data);
+                            this.messages.splice(index, 1);
+                            this.messages.unshift(message);
+                        } else {
+                            this.messages.unshift(message);
+                        }
+                        if (this.$children[0].current === index)
+                            this.$children[0].current = 0;
+                        else if (index === -1 || this.$children[0].current > index)
+                            this.$children[0].current++;
+                    }
+                    this.menus[0].hasNew = true;
+                    sessionStorage.setItem(MESSAGES, JSON.stringify(this.messages));
+                }else if (result.type === IM_NOTIFICATION) {
+                    data.content = JSON.parse(data.content);
+                    // eslint-disable-next-line no-console
+                    console.log(data);
+                    if (this.notifications === null) {
+                        this.notifications = [data];
+                    }else {
+                        this.notifications.push(data);
+                    }
+                    this.menus[2].hasNew = true;
+                }
+            },
+            websocketonopen() {
+                // eslint-disable-next-line no-console
+                console.log("websocket连接建立成功.")
+            },
+            websocketonerror(e) {
+                // eslint-disable-next-line no-console
+                console.log("websocket连接建立失败.");
+                // this.initwebsocket();
+                Notification.error('连接出错：'+e)
+            },
+            websocketsend(data){
+                // this.websocket.send(data).catch(e => {
+                //     throw new Error(e.getMessages())
+                // });
+                // eslint-disable-next-line no-console
+                if (this.websocket.readyState !== 1) {
+                    throw new Error('连接出错');
+                }
+                try {
+                    this.websocket.send(data);
+                }catch (e) {
+                    Notification.error(e);
+                }
+            },
+            websocketonclose() {
+                // eslint-disable-next-line no-console
+                console.log("websocket连接已断开.")
+            },
             changeIndex(index) {
                 this.current = index;
                 sessionStorage.setItem(HOME_CURRENT, this.current);
-                this.menus[this.current].hasNew = false;
+                this.menus[index].hasNew = false;
             },
             logout() {
+                this.websocket.close();
                 // alert("logout");
                 sessionStorage.removeItem(USER);
                 sessionStorage.removeItem(ISLOGIN);
-                sessionStorage.removeItem(RECENTMESSAGES);
+                sessionStorage.removeItem(MESSAGES);
                 sessionStorage.removeItem(RECENT_CURRENT);
                 sessionStorage.removeItem(FRIENDS);
                 sessionStorage.removeItem(HOME_CURRENT);
@@ -206,13 +307,139 @@
                 }
                 this.avatarVisible = false;
                 this.dialogVisible = false;
+            },
+            //获取未读记录
+            getMessages() {
+                if (this.messages === null){
+                    this.messages = JSON.parse(sessionStorage.getItem(MESSAGES));
+                    if (this.messages === null) {
+                        new Promise((resolve, reject) => {
+                            let user = this.$store.getters.user;
+                            this.messages = [];
+                            getMessagesInterval(user.UUID).then(response => {
+                                response.data.data.forEach(o => {
+                                    this.messages.push(o);
+                                });
+                                this.messages.forEach(o => {
+                                    o.count = o.messageList.length;
+                                });
+                                if (this.messages.length > 0) {
+                                    this.menus[0].hasNew = true;
+                                }
+                                // eslint-disable-next-line no-console
+                                // console.log(response.data.data);
+                                sessionStorage.setItem(MESSAGES, JSON.stringify(this.messages));
+                                resolve();
+                            }).catch(error => {
+                                Notification.error('获取未读消息出错！' + error);
+                                reject(error);
+                            })
+                        });
+                    }
+                }
+            },
+            //获取好友列表
+            getFriends() {
+                if (this.friends === null) {
+                    this.friends = JSON.parse(sessionStorage.getItem(FRIENDS));
+                    if (this.friends === null) {
+                        let data = {};
+                        data['uuid'] = this.user.UUID;
+                        data['pageNum'] = 0;
+                        data['pageSize'] = 20;
+                        new Promise((resolve, reject) => {
+                            getFriends(data).then(response => {
+                                if (response.data.code === 200) {
+                                    // eslint-disable-next-line no-console
+                                    this.friends = response.data.data;
+                                } else {
+                                    alert(response.data.data);
+                                }
+                                sessionStorage.setItem(FRIENDS, JSON.stringify(response.data.data));
+                                resolve()
+                            }).catch(error => {
+                                reject(error);
+                            })
+                        })
+                    }
+                }
+            },
+            //获取好友请求列表
+            getRequests() {
+                if (this.requests === null) {
+                    this.requests = JSON.parse(sessionStorage.getItem(REQUESTS));
+                    if (this.requests === null) {
+                        new Promise((resolve, reject) => {
+                            let data = {};
+                            data['uuid'] = this.user.UUID;
+                            data['pageNum'] = 0;
+                            data['pageSize'] = 8;
+                            getRequests(data).then(response => {
+                                let data = response.data;
+                                if (data.code === 200) {
+                                    this.requests = data.data;
+                                    if (this.requests !== null && this.requests.length > 0)
+                                        this.menus[1].hasNew = true;
+                                }
+                                sessionStorage.setItem(REQUESTS, JSON.stringify(this.requests));
+                                resolve();
+                            }).catch(error => {
+                                Notification.error({
+                                    title: '获取好友请求出错',
+                                    message: '网络异常: ' + error
+                                });
+                                reject(error);
+                            })
+                        });
+                    }
+                }
+            },
+            //获取未读通知列表
+            getNotifications() {
+                if (this.requests === null) {
+                    this.requests = JSON.parse(sessionStorage.getItem(NOTIFICATIONS));
+                    if (this.requests === null) {
+                        new Promise((resolve, reject) => {
+                            getNotifications(this.user.UUID).then(response => {
+                                let data = response.data;
+                                if (data.code === 200) {
+                                    this.notifications = [];
+                                    data.data.forEach(o => {
+                                        o.content = JSON.parse(o.content);
+                                        this.notifications.push(o);
+                                    });
+                                    if (this.notifications !== null && this.notifications.length > 0)
+                                        this.menus[2].hasNew = true;
+                                }
+                                sessionStorage.setItem(NOTIFICATIONS, JSON.stringify(this.notifications));
+                                resolve();
+                            }).catch(error => {
+                                Notification.error({
+                                    title: '获取通知列表出错',
+                                    message: '网络异常: ' + error
+                                });
+                                reject(error);
+                            })
+                        });
+                    }
+                }
             }
         },
         created() {
+            this.getMessages();
+            this.initwebsocket();
+            this.getFriends();
+            this.getRequests();
+            this.getNotifications();
+        },
+        destroyed() {
+            this.websocket.close();
+        },
+        beforeCreate() {
             this.current = sessionStorage.getItem(HOME_CURRENT);
             if (this.current === null)
-                this.current = 0;
-        }
+                this.current = 3;
+        },
     }
 
 </script>
@@ -238,7 +465,7 @@
         height: 60px;
         width: 200px;
         position: relative;
-        top: -53px;
+        top: -65px;
         left: 240px;
     }
     .user-home * {

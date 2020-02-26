@@ -10,7 +10,8 @@
                     <el-input
                             placeholder="请输入用户名"
                             clearable
-                            v-model="form.username"/>
+                            v-model="form.username"
+                    @keyup.enter.native="SignIn('form')"/>
                 </el-form-item>
                 <el-form-item label="密码" prop="password">
                     <el-input

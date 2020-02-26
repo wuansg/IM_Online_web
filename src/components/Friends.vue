@@ -10,13 +10,13 @@
                     clearable
                     />
                 <el-button class="search-button" type="primary" icon="el-icon-plus" plain @click="adds"/>
-                <el-badge :value="requests.length" :hidden="requests.length === 0">
-                <el-button class="requests" type="primary" icon="el-icon-more" plain @click="openRequest"/>
-                </el-badge>
+<!--                <el-badge :value="requests.length" :hidden="requests.length === 0">-->
+<!--                <el-button class="requests" type="primary" icon="el-icon-more" plain @click="openRequest"/>-->
+<!--                </el-badge>-->
             </div>
             <el-scrollbar class="friends-scrollbar" v-loading="loading">
                 <ul>
-                    <li v-for="(friend, index) in friends.content" :key="friend.id" @click="current = index"
+                    <li v-for="(friend, index) in friends.content" :key="friend.uuid" @click="current = index"
                             :class="checkIndex(index)?'touch':''">
                         <img :src="friend.avatar"/>
                         <h3 class="username">{{ friend.username }} </h3>
@@ -74,10 +74,10 @@
 </template>
 
 <script>
-    import {getFriends, addFriend, getRequests, accept, reject} from "../api/friends";
+    import {addFriend, getRequests} from "../api/friends";
     import {searchUser} from "../api/user";
     import {Notification} from 'element-ui'
-    import {FRIENDS, RECENT_CURRENT, RECENTMESSAGES, UPDATE_COMPONENT, UPDATE_MENU} from "../utils/constant";
+    import { RECENT_CURRENT, MESSAGES, UPDATE_COMPONENT} from "../utils/constant";
 
     export default {
         name: "Friends",
@@ -89,65 +89,17 @@
                 dialogVisible: false,
                 moreVisible: false,
                 user: this.$store.getters.user,
-                friends: null,
+                friends: this.$parent.friends,
                 searchKeyword: '',
                 searchLoading: false,
-                requests: [],
+                requests: this.$parent.requests,
                 current: -1,
                 userBySearch: []
             }
         },
         methods: {
-            getFriendList() {
-                if (this.friends === null) {
-                    this.friends = JSON.parse(sessionStorage.getItem(FRIENDS));
-                    if (this.friends === null) {
-                        let data = {};
-                        data['uuid'] = this.user.UUID;
-                        data['pageNum'] = 0;
-                        data['pageSize'] = 20;
-                        new Promise((resolve, reject) => {
-                            getFriends(data).then(response => {
-                                if (response.data.code === 200) {
-                                    // eslint-disable-next-line no-console
-                                    this.friends = response.data.data;
-                                } else {
-                                    alert(response.data.data);
-                                }
-                                sessionStorage.setItem(FRIENDS, JSON.stringify(response.data.data));
-                                resolve()
-                            }).catch(error => {
-                                reject(error);
-                            })
-                        })
-                    }
-                }
-            },
-            getFriendRequests() {
-                new Promise((resolve,reject) => {
-                    let data = {};
-                    data['uuid'] = this.user.UUID;
-                    data['pageNum'] = 0;
-                    data['pageSize'] = 8;
-                    getRequests(data).then(response=> {
-                        let data = response.data;
-                        if (data.code === 200) {
-                            this.requests = data.data;
-                            if (this.requests !== null && this.requests.length > 0)
-                                this.$emit(UPDATE_MENU);
-                        }
-                        resolve();
-                    }).catch(error => {
-                        Notification.error({
-                            title: '获取好友请求出错',
-                            message: '网络异常: '+error
-                        });
-                        reject(error);
-                    })
-                });
-            },
             redirectToMessage() {
-                let recentMessages = JSON.parse(sessionStorage.getItem(RECENTMESSAGES));
+                let recentMessages = this.$parent.messages;
                 if (recentMessages !== null) {
                     let index = recentMessages.findIndex(element => element.userID === this.friends.content[this.current].uuid);
                     if (index === -1) {
@@ -172,7 +124,7 @@
                         }
                     ]
                 }
-                sessionStorage.setItem(RECENTMESSAGES, JSON.stringify(recentMessages));
+                sessionStorage.setItem(MESSAGES, JSON.stringify(recentMessages));
                 sessionStorage.setItem(RECENT_CURRENT, 0);
                 this.$emit(UPDATE_COMPONENT, 0);
             },
@@ -218,6 +170,9 @@
                 let data = {};
                 data['requestID'] = this.user.UUID;
                 data['acceptID'] = user.uuid;
+                data['createTime'] = new Date().getUTCMilliseconds();
+                data['modifyTime'] = data['createTime'];
+                data['status'] = 0;
                 new Promise((resolve, reject) => {
                     addFriend(data).then((response) => {
                         let result = response.data;
@@ -226,7 +181,6 @@
                                 title: '通知',
                                 message: '添加好友请求已发送'
                             });
-                            this.$el.querySelector('#'+data.uuid).disabled=true
                         }else {
                             Notification.error({
                                 title: '通知',
@@ -240,59 +194,6 @@
                             message: '网络异常: '+error
                         });
                         reject(error);
-                    })
-                })
-            },
-            acceptRequest(data) {
-                new Promise((resolve, reject)=>{
-                    accept(data.uuid).then(response => {
-                        let result = response.data;
-                        if (result.code === 200) {
-                            Notification.success({
-                                title:'通知',
-                                message: '成功'
-                            });
-                            this.requests.splice(this.requests.findIndex(o => o.uuid === data.uuid), 1);
-                            this.friends.push(data.requestUser);
-                            sessionStorage.setItem(FRIENDS, JSON.stringify(this.friends));
-                        }else {
-                            Notification.error({
-                                title:'通知',
-                                message:'失败'
-                            })
-                        }
-                        resolve()
-                    }).catch(error=>{
-                        Notification.error({
-                            title: '好友请求同意发送失败',
-                            message:"网络异常: "+error
-                        });
-                        reject(error);
-                    })
-                })
-            },
-            rejectRequest(data) {
-                new Promise((resolve)=>{
-                    reject(data.uuid).then(response=>{
-                        let data = response.data;
-                        if(data.code === 200) {
-                            Notification.success({
-                                title:'通知',
-                                message:'成功'
-                            });
-                            this.$el.querySelector('.'+data.uuid).disabled=true;
-                        }else {
-                            Notification.error({
-                                title:'通知',
-                                message:'失败'
-                            })
-                        }
-                        resolve();
-                    }).catch(error => {
-                        Notification.error({
-                            title: '好友请求拒绝发送失败',
-                            message: '网络异常'+error
-                        });
                     })
                 })
             },
@@ -338,8 +239,7 @@
             }
         },
         created() {
-            this.getFriendList();
-            this.getFriendRequests();
+            // eslint-disable-next-line no-console
             this.default_active = "1";
         },
         watch: {
@@ -399,32 +299,6 @@
                 });
                 this.searchLoading = false;
             }
-        },
-        mounted() {
-            let time = 3000;
-            setInterval(() => {
-                let data = {};
-                data['uuid'] = this.user.UUID;
-                data['pageNum'] = 0;
-                data['pageSize'] = 8;
-                new Promise((resolve,reject) => {
-                    getRequests(data).then(response=> {
-                        let data = response.data;
-                        if (data.code === 200) {
-                            this.requests = data.data;
-                            if (this.requests === null || this.requests.length <= 0) {
-                                this.requests = []
-                            }else {
-                                this.$emit(UPDATE_MENU);
-                            }
-                        }
-                        resolve();
-                    }).catch(error => {
-                        reject(error);
-                    })
-                });
-                this.getFriendList()
-            }, time)
         }
     }
 </script>
@@ -457,7 +331,7 @@
         padding: 10px 6px;
     }
     .search_input {
-        width: 210px;
+        width: 260px;
         padding-right: 4px;
     }
     .search-button {
