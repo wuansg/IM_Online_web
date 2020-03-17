@@ -32,7 +32,7 @@
 
 <script>
     import {login} from "../api/login";
-    import {setCookies} from "../utils/auth";
+    // import {setCookies} from "../utils/auth";
     import {validateUsername} from "../utils/validate";
     import {Notification} from 'element-ui'
     import {ISLOGIN, SAVE_USER, USER} from "../utils/constant";
@@ -73,7 +73,9 @@
                                 if (data.code === 200) {
                                     data.data['UUID'] = data.data['uuid'];
                                     delete data.data.uuid;
-                                    setCookies(response.cookie);
+                                    // eslint-disable-next-line no-console
+                                    // console.warn(response.cookie);
+                                    // setCookies(response.cookie);
                                     sessionStorage.setItem(USER, JSON.stringify(data.data));
                                     sessionStorage.setItem(ISLOGIN, true);
                                     this.$store.dispatch(SAVE_USER, {user: data.data});

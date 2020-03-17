@@ -78,6 +78,7 @@
     import {getMessagesInterval} from "../api/recent";
     import {getFriends, getRequests} from "../api/friends";
     import {getNotifications} from "../api/notification";
+    import {WSURI} from "../utils/request";
 
     export default {
         name: "Home.vue",
@@ -155,7 +156,8 @@
         },
         methods: {
             initwebsocket() {
-                const wsuri = "ws://localhost:8080/message/"+this.user.UUID;
+                // const wsuri = +this.user.UUID;
+                const wsuri = WSURI + this.user.UUID;
                 this.websocket = new WebSocket(wsuri);
                 this.websocket.onmessage = this.websocketonmessage;
                 this.websocket.onclose = this.websocketonclose;
@@ -220,10 +222,6 @@
                 Notification.error('连接出错：'+e)
             },
             websocketsend(data){
-                // this.websocket.send(data).catch(e => {
-                //     throw new Error(e.getMessages())
-                // });
-                // eslint-disable-next-line no-console
                 if (this.websocket.readyState !== 1) {
                     throw new Error('连接出错');
                 }

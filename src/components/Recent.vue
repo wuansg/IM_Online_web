@@ -147,6 +147,7 @@
                     if (response.data.code === 200) {
                         data.content.path = response.data.data;
                         try {
+                            delete data.error;
                             this.$parent.websocketsend(JSON.stringify(data))
                         }catch (e) {
                             Notification.error('消息发送出错：'+e);
@@ -166,7 +167,6 @@
                     return
                 }
                 let data = {
-                    error: true,
                     senderID: this.user.UUID,
                     receiverID: this.messages[this.current].userID,
                     type: 1,//表示图片
@@ -181,6 +181,8 @@
                     // 当文件保存成功后发送一条消息记录
                     if (response.data.code === 200) {
                         try {
+                            delete data.error;
+                            data.content = response.data.data;
                             this.$parent.websocketsend(JSON.stringify(data))
                         }catch(e){
                             Notification.error('消息发送出错:'+e);
@@ -208,6 +210,7 @@
                 };
                 this.text = '';
                 try {
+                    delete data.error;
                     this.$parent.websocketsend(JSON.stringify(data))
                 }catch (e) {
                     Notification.error('连接已断开,请重试' + e);
@@ -234,7 +237,7 @@
                     return record.content;
                 }else if (record.type === 1) {
                     return '[图片]';
-                }else if (record.type == 2) {
+                }else if (record.type === 2) {
                     return '[文件]';
                 }
             },

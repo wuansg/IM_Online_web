@@ -1,8 +1,11 @@
 import axios from 'axios'
 import store from "../store/store";
 
-const BASE_URL = "http://localhost:8080/api";
+const BASE_URL = process.env.NODE_ENV === 'development'
+    ? "http://localhost:8080/api" : "/api";
 // const BASE_URL = "/api";
+export const WSURI = process.env.NODE_ENV === 'development'
+    ? 'ws:localhost:8080/ws/' : "ws:"+ window.location.host + "/ws/";
 
 // 创建axios实例
 const service = axios.create({
