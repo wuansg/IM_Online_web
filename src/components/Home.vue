@@ -1,38 +1,50 @@
 <template>
-    <div class="home">
-        <div class="header">
+    <el-container class="home">
+        <el-header class="header">
             <h1>IM Online</h1>
-            <div class="user-home">
-                <img :src="user.avatar" @click="cropImage"/>
-                <p>{{ user.username }}</p>
-                <el-link type="danger" @click="logout">退出登录</el-link>
+            <el-popover
+                    style="text-align: center"
+                    placement="bottom"
+                    trigger="hover">
+                <div style="text-align: center">
+                    <h2>{{ user.username }}</h2>
+                    <el-button style="color: red; font-size: small" type="text" @click="logout">注销</el-button>
+                </div>
+                <el-avatar slot="reference" class="header-avatar" :size="60" :src="user.avatar" @click="cropImage"/>
+            </el-popover>
+        </el-header>
+        <el-main>
+            <div style="display: flex">
+                <div style="width: 300px">
+                    <el-card class="sidebar" :class="{ open: !isCollapse }">
+                        <el-menu class="im-menu"
+                                 background-color="#2c3e50" text-color="#ffffff" :default-active='"0"' :collapse="isCollapse" router>
+                            <!--                <el-menu-item-->
+                            <!--                        v-for="menu in menus" :key="menu.index" :index="menu.index"-->
+                            <!--                         @mouseenter||mouseleave="openOrClose" :route="menu.path">-->
+                            <!--                    <el-badge :is-dot="menu.hasNew" style=" width: 100%" v-on:update:is-dot="openOrClose">-->
+                            <!--                        <i :class="menu.icon" style=""> {{menu.title}}</i>-->
+                            <!--                    </el-badge>-->
+                            <!--                </el-menu-item>-->
+                            <el-menu-item
+                                    v-for="menu in menus" :key="menu.index" @click="changeIndex(menu.index)">
+                                <el-badge :is-dot="menu.hasNew" style=" width: 100%">
+                                    <i :class="[menu.icon, {active:current === menu.index}]" > {{menu.title}}</i>
+                                </el-badge>
+                            </el-menu-item>
+                        </el-menu>
+                    </el-card>
+                </div>
+                <div>
+                    <component class="body"
+                            @update:component="changeComponent($event)"
+                               :menu="menus[current]" :is="currentComponent"/>
+                </div>
             </div>
-        </div>
-        <el-card class="sidebar" :class="{ open: !isCollapse }">
-            <el-menu class="im-menu"
-                    background-color="#2c3e50" text-color="#ffffff" :default-active='"0"' :collapse="isCollapse" router>
-<!--                <el-menu-item-->
-<!--                        v-for="menu in menus" :key="menu.index" :index="menu.index"-->
-<!--                         @mouseenter||mouseleave="openOrClose" :route="menu.path">-->
-<!--                    <el-badge :is-dot="menu.hasNew" style=" width: 100%" v-on:update:is-dot="openOrClose">-->
-<!--                        <i :class="menu.icon" style=""> {{menu.title}}</i>-->
-<!--                    </el-badge>-->
-<!--                </el-menu-item>-->
-                <el-menu-item
-                        v-for="menu in menus" :key="menu.index" @click="changeIndex(menu.index)">
-                    <el-badge :is-dot="menu.hasNew" style=" width: 100%">
-                        <i :class="[menu.icon, {active:current === menu.index}]" > {{menu.title}}</i>
-                    </el-badge>
-                </el-menu-item>
-            </el-menu>
-        </el-card>
-        <div class="body">
-            <component @update:component="changeComponent($event)"
-                       :menu="menus[current]" :is="currentComponent"/>
-        </div>
-        <div class="footer">
-            <h4>silverspoon</h4>
-        </div>
+        </el-main>
+        <el-footer class="footer">
+            <h1 style="color: black">2020 &copy; IM-Online silverspoon</h1>
+        </el-footer>
         <el-dialog :visible.sync="dialogVisible" title="头像编辑">
             <img :src="user.avatar" style="width: 200px; height: 200px"/>
             <el-upload class="upload-avatar" action="" drag :auto-upload="false" :show-file-list="false" :on-change="changeUpload">
@@ -56,7 +68,7 @@
                 <el-button type="primary" @click="finish" :loading="loading">确认</el-button>
             </div>
         </el-dialog>
-    </div>
+    </el-container>
 </template>
 
 <script>
@@ -86,7 +98,7 @@
             return {
                 avatarVisible: false,
                 dialogVisible: false,
-                current: 0,
+                current: 1,
                 user: this.$store.getters.user,
                 isCollapse: false,
                 menus: [
@@ -165,9 +177,10 @@
                 this.websocket.onopen = this.websocketonopen;
             },
             websocketonmessage(e) {
+                if (this.websocket.isCloned) {
+                    this.initwebsocket();
+                }
                 let result = JSON.parse(e.data);
-                // eslint-disable-next-line no-console
-                // console.log(e.data);
                 let data = result.data;
                 if (result.type === IM_MESSAGE) {
                     let message = {
@@ -201,14 +214,13 @@
                     sessionStorage.setItem(MESSAGES, JSON.stringify(this.messages));
                 }else if (result.type === IM_NOTIFICATION) {
                     data.content = JSON.parse(data.content);
-                    // eslint-disable-next-line no-console
-                    console.log(data);
                     if (this.notifications === null) {
                         this.notifications = [data];
                     }else {
                         this.notifications.push(data);
                     }
                     this.menus[2].hasNew = true;
+                    sessionStorage.setItem(NOTIFICATIONS, JSON.stringify(this.notifications))
                 }
             },
             websocketonopen() {
@@ -249,9 +261,11 @@
                 sessionStorage.removeItem(RECENT_CURRENT);
                 sessionStorage.removeItem(FRIENDS);
                 sessionStorage.removeItem(HOME_CURRENT);
+                sessionStorage.removeItem(NOTIFICATIONS);
                 this.$router.push({
                     path: '/'
                 });
+                console.log(1)
             },
             changeComponent(index) {
                 this.current = index;
@@ -353,7 +367,7 @@
                                 } else {
                                     alert(response.data.data);
                                 }
-                                sessionStorage.setItem(FRIENDS, JSON.stringify(response.data.data));
+                                sessionStorage.setItem(FRIENDS, JSON.stringify(this.friends));
                                 resolve()
                             }).catch(error => {
                                 reject(error);
@@ -459,48 +473,24 @@
     .active{
         color: #409EFF;
     }
-    .user-home {
-        height: 60px;
-        width: 200px;
-        position: relative;
-        top: -65px;
-        left: 240px;
-    }
-    .user-home * {
-        float: left;
-    }
-    .user-home img {
-        width: 60px;
-        height: 60px;
-        border-radius: 30px;
-    }
-    .user-home p{
-        height: 30px;
-        width: 120px;
-        text-align: left;
-        color: #FFFFFF;
-        margin-top: 10px;
-        padding-left: 10px;
-    }
-    .user-home a {
-        padding-left: 10px;
-    }
     .header {
-        height: 60px;
+        width: 100%;
+        padding: 0 200px;
         background-color: #2c3e50;
     }
     .header>h1 {
-        padding-top: 7px;
+        display: inline-block;
         text-align: center;
-        margin-top: 0;
         color: aliceblue;
+        font-size: xx-large;
+    }
+    .header-avatar {
+        float: left;
     }
     .sidebar {
         background-color: #2c3e50;
         width: 84px;
         float: left;
-        /*margin-right: 20px;*/
-        margin-left: -60px;
         margin-top: 200px;
     }
     .open {
@@ -517,15 +507,13 @@
     /deep/ .el-card__body {
     }
     .im-menu>i {}
-    .body {
-        /*float: left;*/
-        /*position: absolute;*/
-        /*left: 360px;*/
-        margin: 40px 0 40px 420px;
-    }
     .im-menu:not(.el-menu--collapse) {
         width: 200px;
         min-height: 168px;
+    }
+    .body {
+        text-align: center;
+        margin-left: 100px;
     }
     .footer {
         margin-top: 70px;

@@ -15,7 +15,7 @@
 <!--                </el-badge>-->
             </div>
             <el-scrollbar class="friends-scrollbar" v-loading="loading">
-                <ul>
+                <ul v-if="friends !== null">
                     <li v-for="(friend, index) in friends.content" :key="friend.uuid" @click="current = index"
                             :class="checkIndex(index)?'touch':''">
                         <img :src="friend.avatar"/>
@@ -27,7 +27,7 @@
             </el-scrollbar>
         </div>
         <div class="friends-body" v-if="current !== -1">
-            <img :src="friends.content[current].avatar"/>
+            <el-image :src="friends.content[current].avatar"/>
             <h1>{{ friends.content[current].username }}</h1>
             <p>{{ friends.content[current].signature }}</p>
 
@@ -77,7 +77,7 @@
     import {addFriend, getRequests} from "../api/friends";
     import {searchUser} from "../api/user";
     import {Notification} from 'element-ui'
-    import { RECENT_CURRENT, MESSAGES, UPDATE_COMPONENT} from "../utils/constant";
+    import {RECENT_CURRENT, MESSAGES, UPDATE_COMPONENT,} from "../utils/constant";
 
     export default {
         name: "Friends",
@@ -241,6 +241,7 @@
         created() {
             // eslint-disable-next-line no-console
             this.default_active = "1";
+            console.warn(this.friends)
         },
         watch: {
             keyword: function (newValue) {

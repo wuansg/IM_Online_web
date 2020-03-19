@@ -1,14 +1,15 @@
 import Vue from 'vue'
 import {
+  Aside, Avatar,
   Badge,
   Button,
-  Card, DatePicker, Dialog, Divider,
+  Card, Container, DatePicker, Dialog, Divider, Footer,
   Form,
-  FormItem,
+  FormItem, Header,
   Input,
-  Link, Loading,
+  Link, Loading, Main,
   Menu,
-  MenuItem, Pagination, Radio,
+  MenuItem, Pagination, Popover, Radio,
   RadioGroup,
   Scrollbar,
   Tooltip,
@@ -40,6 +41,13 @@ Vue.use(Pagination);
 Vue.use(Badge);
 Vue.use(Loading);
 Vue.use(VueCropper);
+Vue.use(Container);
+Vue.use(Header);
+Vue.use(Aside);
+Vue.use(Main);
+Vue.use(Footer);
+Vue.use(Avatar);
+Vue.use(Popover);
 
 Vue.config.productionTip = false;
 
