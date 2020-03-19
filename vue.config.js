@@ -3,6 +3,7 @@ module.exports = {
     devServer: {
         port: 8081
     },
+    runtimeCompiler: true,
 
     // 取消生成map文件（map文件可以准确的输出是哪一行哪一列有错
     productionSourceMap: false,

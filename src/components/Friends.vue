@@ -56,20 +56,6 @@
             </el-pagination>
             </div>
         </el-dialog>
-        <el-dialog title="好友请求" :visible.sync="moreVisible" >
-            <el-card v-for="o in requests.content" :key="o.uuid" style="width: 200px; display:inline-block; margin: 10px 10px">
-                <img :src="o.requestUser.avatar" />
-                <div>
-                    <span>{{o.requestUser.username}}</span>
-                    <el-button class="o.uuid" type="primary" plain @click="acceptRequest(o)">同意</el-button>
-                    <el-button class="o.uuid" type="danger" plain @click="rejectRequest(o)">拒绝</el-button>
-                </div>
-            </el-card>
-            <el-pagination style="text-align: center"
-                           background
-                           layout="total, prev, pager, next"
-                           :total="requests.totalElements" @current_change="currentChangeOfRequest"/>
-        </el-dialog>
     </el-card>
 </template>
 
