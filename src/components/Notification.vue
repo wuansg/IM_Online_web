@@ -1,27 +1,29 @@
 <template>
     <el-card class="notification">
-        <ul>
-            <li v-for="o in notifications" :key="o.uuid">
-                <div v-if="o.type === 0">
+        <h1 style="color: #515a6e;">通知列表</h1>
+        <div v-for="o in notifications" :key="o.uuid">
+            <div v-if="o.type === 0">
 
+            </div>
+            <div v-else-if="o.type === 1" style="display: flex">
+                <div class="notification_header">
+                    <el-avatar :size="64" :src="o.content.requestUser.avatar" class="notification_img"/>
+                    <div >
+                        <span class="notification_text" >{{ o.content.requestUser.username}}</span>
+                    </div>
                 </div>
-                <div v-else-if="o.type === 1">
-                    <p>好友请求</p>
-                    <img :src="o.content.requestUser.avatar" class="notification_img"/>
-                    <p class="notification_username">{{ o.content.requestUser.username}}</p>
-                    <div v-if="o.content.status === 0">
+                <div class="notification_footer" v-if="o.content.status === 0">
                     <el-button class="notification_button" type="danger" @click="rejectRequest(o)">拒绝</el-button>
                     <el-button class="notification_button" type="primary" @click="acceptRequest(o)">同意</el-button>
-                    </div>
-                    <div v-else-if="o.content.status === 1">
-                        <p style="text-align: right; color: #409EFF; margin-right: 360px; font-size: x-large">已同意</p>
-                    </div>
-                    <div v-else-if="o.content.status === 2">
-                        <p style="text-align: right; color: red; margin-right: 360px; font-size: x-large">已拒绝</p>
-                    </div>
                 </div>
-            </li>
-        </ul>
+                <div class="notification_footer" v-else-if="o.content.status === 1">
+                    <p style="text-align: right; color: #409EFF; font-size: x-large">已同意</p>
+                </div>
+                <div class="notification_footer" v-else-if="o.content.status === 2">
+                    <p style="text-align: right; color: red; font-size: x-large">已拒绝</p>
+                </div>
+            </div>
+        </div>
     </el-card>
 </template>
 
@@ -32,9 +34,11 @@
 
     export default {
         name: "Notify",
+        props: {
+            'notifications': Array
+        },
         data() {
             return {
-                notifications: this.$parent.notifications,
             }
         },
         methods: {
@@ -47,7 +51,7 @@
                                 title:'通知',
                                 message: '成功'
                             });
-                            this.$parent.friends.content.push(data.requestUser);
+                            this.friends.push(data.requestUser);
                             data.content.status = 1;
                             sessionStorage.setItem(FRIENDS, JSON.stringify(this.friends));
                         }else {
@@ -102,20 +106,32 @@
         background-color: #FFFFFF;
         border-radius: 12px;
     }
-    .notification li {
-        list-style: none;
+    .notification_header {
+        display: flex;
+        height: 64px;
+        margin: 10px 20px;
+        width: 800px;
+        text-align: left;
+        padding: 0 10px;
+    }
+    .notification_text {
+        position: relative; top: 30%; transform: translate(0, -50%);
+        font-size: x-large;
+        font-weight: 500;
+        color: #515a6e;
+        padding: 2px 24px;
+        font-family: "微软雅黑","Helvetica Neue",Helvetica,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",Arial,sans-serif;
+    }
+    .notification_footer {
+        margin: auto;
+        text-align: center;
+    }
+    .notification_footer>button {
+        margin: 0 20px;
     }
     .notification_img {
         max-height: 64px;
         max-width: 64px;
-        float: left;
     }
-    .notification_username {
-        float: left;
-        margin-left: 20px;
-    }
-    .notification_button {
-        float: right;
-        margin-right: 32px;
-    }
+
 </style>

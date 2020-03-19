@@ -1,5 +1,6 @@
 <template>
-    <el-card class="friends">
+    <div>
+        <el-card class="friends">
         <div class="friends-aside">
             <div class="friends-search">
                 <el-input
@@ -9,54 +10,61 @@
                     v-model="keyword"
                     clearable
                     />
-                <el-button class="search-button" type="primary" icon="el-icon-plus" plain @click="adds"/>
-<!--                <el-badge :value="requests.length" :hidden="requests.length === 0">-->
-<!--                <el-button class="requests" type="primary" icon="el-icon-more" plain @click="openRequest"/>-->
-<!--                </el-badge>-->
+                <el-button class="search-button" icon="el-icon-plus" plain @click="adds"
+                    style="background-color: #f1f3f4"/>
             </div>
             <el-scrollbar class="friends-scrollbar" v-loading="loading">
-                <ul v-if="friends !== null">
-                    <li v-for="(friend, index) in friends.content" :key="friend.uuid" @click="current = index"
-                            :class="checkIndex(index)?'touch':''">
-                        <img :src="friend.avatar"/>
-                        <h3 class="username">{{ friend.username }} </h3>
-                        <p class="signature">{{ friend.signature }}</p>
-                        <el-divider/>
-                    </li>
-                </ul>
+                <div v-for="(friend, index) in friends" :key="friend.uuid" @click="current = index"
+                        :class="[checkIndex(index)?'touch':'', 'friends-item']">
+                    <el-avatar :size="42" :src="friend.avatar"/>
+                    <div>
+                        <span class="username">{{ friend.username }}</span>
+                    </div>
+                </div>
             </el-scrollbar>
         </div>
         <div class="friends-body" v-if="current !== -1">
-            <el-image :src="friends.content[current].avatar"/>
-            <h1>{{ friends.content[current].username }}</h1>
-            <p>{{ friends.content[current].signature }}</p>
-
-            <el-button type="primary" class="open-message" icon="el-icon-chat-dot-round" @click="redirectToMessage" circle/>
+            <div style="margin: 0 200px; border-bottom: 1px solid lightgray;">
+                <el-avatar :size="128" :src="friends[current].avatar" style="margin-top: 20px;"/>
+                <h1 style="padding: 10px">{{ friends[current].username }}</h1>
+                <p>{{ friends[current].signature }}</p>
+            </div>
+            <div class="friends-other">
+                <span>邮箱</span> <p> {{ friends[current].email }}</p> <br/>
+                <span>性别</span> <i class="el-icon-female" v-if="friends[current].sex === 0"/><i class="el-icon-male" v-else/><br/>
+                <span>生日</span>
+                <p v-if="friends[current].birthday"> {{ friends[current].birthday }}</p>
+                <p v-else>----:--:--</p>
+            </div>
+            <div class="friends-bt">
+                <el-button type="primary" icon="el-icon-message-solid" @click.native="redirectToMessage"><span> 发信息</span></el-button>
+            </div>
         </div>
 
+    </el-card>
         <el-dialog title="添加好友" :visible.sync="dialogVisible" class="friends-add" style="text-align: left">
             <el-input clearable prefix-icon="el-icon-search" placeholder="输入用户名进行检索" v-model="searchKeyword"
-                @keypress.enter.native="adds"/>
+                      @keypress.enter.native="adds"/>
             <div v-loading="searchLoading">
-            <el-card v-for="user in userBySearch.content" :key="user.uuid" style="width: 200px; display:inline-block; margin: 10px 8px">
-                <img :src="user.avatar" style="width: 200px; height: 200px"/>
-                <div style="padding: 14px">
-                    <span>{{user.username}}</span>
-                    <div class="bottom clearfix">
-                        <p>{{user.signature}}</p>
-                        <el-button :id="user.uuid"
-                                style="width: 20px;height: 20px" type="primary" icon="el-icon-plus" plain @click="addUser(user)"/>
+                <el-card v-for="user in userBySearch.content" :key="user.uuid" style="width: 200px; display:inline-block; margin: 10px 8px">
+                    <img :src="user.avatar" style="width: 200px; height: 200px"/>
+                    <div style="padding: 14px">
+                        <span>{{user.username}}</span>
+                        <div class="bottom clearfix">
+                            <p>{{user.signature}}</p>
+                            <el-button :id="user.uuid"
+                                       style="width: 20px;height: 20px" type="primary" icon="el-icon-plus" plain @click="addUser(user)"/>
+                        </div>
                     </div>
-                </div>
-            </el-card>
-            <el-pagination style="text-align: center" :page-size="8"
-                    background
-                    layout="total, prev, pager, next"
-                    :total="userBySearch.totalElements" @current-change="currentChange">
-            </el-pagination>
+                </el-card>
+                <el-pagination style="text-align: center" :page-size="8"
+                               background
+                               layout="total, prev, pager, next"
+                               :total="userBySearch.totalElements" @current-change="currentChange">
+                </el-pagination>
             </div>
         </el-dialog>
-    </el-card>
+    </div>
 </template>
 
 <script>
@@ -67,6 +75,10 @@
 
     export default {
         name: "Friends",
+        props: {
+            'friends': Array,
+            'messages': Array,
+        },
         data() {
             return {
                 pageNum: 0,
@@ -75,7 +87,6 @@
                 dialogVisible: false,
                 moreVisible: false,
                 user: this.$store.getters.user,
-                friends: this.$parent.friends,
                 searchKeyword: '',
                 searchLoading: false,
                 requests: this.$parent.requests,
@@ -85,14 +96,14 @@
         },
         methods: {
             redirectToMessage() {
-                let recentMessages = this.$parent.messages;
+                let recentMessages = this.messages;
                 if (recentMessages !== null) {
-                    let index = recentMessages.findIndex(element => element.userID === this.friends.content[this.current].uuid);
+                    let index = recentMessages.findIndex(element => element.userID === this.friends[this.current].uuid);
                     if (index === -1) {
                         recentMessages.unshift({
-                            userID: this.friends.content[this.current].uuid,
-                            avatar: this.friends.content[this.current].avatar,
-                            username: this.friends.content[this.current].username,
+                            userID: this.friends[this.current].uuid,
+                            avatar: this.friends[this.current].avatar,
+                            username: this.friends[this.current].username,
                             messageList: []
                         })
                     } else {
@@ -103,9 +114,9 @@
                 }else {
                     recentMessages = [
                         {
-                            userID: this.friends.content[this.current].uuid,
-                            avatar: this.friends.content[this.current].avatar,
-                            username: this.friends.content[this.current].username,
+                            userID: this.friends[this.current].uuid,
+                            avatar: this.friends[this.current].avatar,
+                            username: this.friends[this.current].username,
                             messageList: []
                         }
                     ]
@@ -227,7 +238,6 @@
         created() {
             // eslint-disable-next-line no-console
             this.default_active = "1";
-            console.warn(this.friends)
         },
         watch: {
             keyword: function (newValue) {
@@ -292,10 +302,11 @@
 
 <style scoped>
     * {
-        font-family: "Helvetica Neue", Helvetica, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "微软雅黑", Arial, sans-serif;
+        font-family: "微软雅黑","Helvetica Neue",Helvetica,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",Arial,sans-serif;
         margin: 0;
         padding: 0;
         border: 0;
+        color: #515a6e;
     }
     .friends {
         height: 720px;
@@ -304,22 +315,38 @@
         border-radius: 12px;
     }
     /deep/ .el-card__body {
+        display: flex;
         padding: 0;
     }
     .friends-aside {
         width: 320px;
-        height: 720px;
+        height: 100%;
         text-align: left;
-        border-right: 3px solid #2c3e50;
+        background-color: #e9ebec;
         border-top-left-radius: 10px;
         border-bottom-left-radius: 10px;
     }
     .friends-search {
         padding: 10px 6px;
     }
+    /deep/ .el-input__inner {
+        background-color: #f1f3f4;
+    }
+    .friends-item {
+        display: flex;
+        padding: 10px 20px;
+    }
+    .username {
+        position: relative; top: 20%; transform: translate(0, -50%);
+        font-size: large;
+        font-weight: 500;
+        color: #515a6e;
+        padding: 2px 16px;
+        font-family: "微软雅黑","Helvetica Neue",Helvetica,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",Arial,sans-serif;
+    }
     .search_input {
-        width: 260px;
-        padding-right: 4px;
+        width: 220px;
+        margin: 5px 20px;
     }
     .search-button {
         width: 40px;
@@ -348,10 +375,10 @@
         padding: 0 4px;
     }
     .touch {
-        background-color: aliceblue;
+        background-color: #dededf;
     }
-    .friends-aside li:hover {
-        background-color: aliceblue;
+    .friends-item:hover {
+        background-color: #dededf;
     }
     .friends-aside img {
         float: left;
@@ -360,37 +387,46 @@
         border-radius: 32px;
     }
     .friends-aside p,h3 {
-        padding: 0 10px;
-        float: left;
-        height: 32px;
-        display: inline;
-        width: 228px;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
     .friends-body {
-        position: relative;
-        width: 877px;
-        height: 720px;
-        top: -720px;
-        left: 323px;
+        flex:1;
+        padding: 80px 0;
         border-top-right-radius: 10px;
         border-bottom-right-radius: 10px;
         /*background-color: #2c3e50;*/
     }
-    .friends-body img {
-        height: 128px;
-        width: 128px;
-        border-radius: 64px;
-        margin-top: 90px;
-    }
-    .friends-body h2 {
-        font-family: "Helvetica Neue", Helvetica, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "微软雅黑", Arial, sans-serif;
-    }
     .friends-body p {
         font-family: "Helvetica Neue", Helvetica, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "微软雅黑", Arial, sans-serif;
-        font-size: x-large;
+        font-size: large;
+    }
+    .friends-other {
+        margin: 40px 200px;
+        padding: 0 60px;
+        text-align: left;
+        font-size: 20px;
+    }
+    .friends-other span {
+        color: darkgrey;
+        line-height: 40px;
+        margin: 0 20px;
+    }
+    .friends-other p {
+        display: inline-block;
+    }
+    .friends-bt {
+        margin: 40px 200px;
+        padding: 40px 0;
+        border-top: 1px solid lightgray;
+    }
+    .friends-bt button {
+        padding: 10px 20px;
+        background-color: #dededf;
+    }
+    .friends-bt button:hover {
+        background-color: #d4d4d4;
     }
     .open-message {
         height: 64px;

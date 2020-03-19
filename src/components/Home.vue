@@ -1,44 +1,39 @@
 <template>
     <el-container class="home">
         <el-header class="header">
-            <h1>IM Online</h1>
             <el-popover
                     style="text-align: center"
                     placement="bottom"
                     trigger="hover">
                 <div style="text-align: center">
                     <h2>{{ user.username }}</h2>
-                    <el-button style="color: red; font-size: small" type="text" @click="logout">注销</el-button>
+                    <el-button style="color: red; font-size: 14px" type="text" @click.native="logout">注销</el-button>
                 </div>
-                <el-avatar slot="reference" class="header-avatar" :size="60" :src="user.avatar" @click="cropImage"/>
+                <el-avatar slot="reference" class="header-avatar" :size="60" :src="user.avatar" @click.native="cropImage"/>
             </el-popover>
+            <div style="flex: 1; text-align: center">
+                <h1 style="color: aliceblue; font-size: 45px">IM Online</h1>
+            </div>
         </el-header>
         <el-main>
             <div style="display: flex">
                 <div style="width: 300px">
                     <el-card class="sidebar" :class="{ open: !isCollapse }">
-                        <el-menu class="im-menu"
-                                 background-color="#2c3e50" text-color="#ffffff" :default-active='"0"' :collapse="isCollapse" router>
-                            <!--                <el-menu-item-->
-                            <!--                        v-for="menu in menus" :key="menu.index" :index="menu.index"-->
-                            <!--                         @mouseenter||mouseleave="openOrClose" :route="menu.path">-->
-                            <!--                    <el-badge :is-dot="menu.hasNew" style=" width: 100%" v-on:update:is-dot="openOrClose">-->
-                            <!--                        <i :class="menu.icon" style=""> {{menu.title}}</i>-->
-                            <!--                    </el-badge>-->
-                            <!--                </el-menu-item>-->
-                            <el-menu-item
-                                    v-for="menu in menus" :key="menu.index" @click="changeIndex(menu.index)">
-                                <el-badge :is-dot="menu.hasNew" style=" width: 100%">
-                                    <i :class="[menu.icon, {active:current === menu.index}]" > {{menu.title}}</i>
-                                </el-badge>
-                            </el-menu-item>
-                        </el-menu>
+                        <div :class="['sidebar-item', {active:current === menu.index}]" v-for="menu in menus" :key="menu.index" @click="changeIndex(menu.index)">
+                            <el-badge :is-dot="menu.hasNew" >
+                                <i :class="menu.icon" style="color: #d4d4d4; margin: 0 6px"></i>
+                                <span style="color: #d4d4d4">{{ menu.title }}</span>
+                            </el-badge>
+                        </div>
                     </el-card>
                 </div>
                 <div>
                     <component class="body"
+                               :friends="friends"
+                               :messages="messages"
+                               :notifications="notifications"
                             @update:component="changeComponent($event)"
-                               :menu="menus[current]" :is="currentComponent"/>
+                               :menus="menus" :is="currentComponent"/>
                 </div>
             </div>
         </el-main>
@@ -108,7 +103,6 @@
                         icon: "el-icon-time",
                         title: "最近聊天记录",
                         hasNew: false,
-                        path: "/home/recent",
                     },
                     {
                         index: 1,
@@ -116,7 +110,6 @@
                         icon: "el-icon-user",
                         title: "好友列表",
                         hasNew: false,
-                        path: "/home/friends",
                     },
                     {
                         index: 2,
@@ -124,7 +117,6 @@
                         icon: "el-icon-bell",
                         title: "通知",
                         hasNew: false,
-                        path: "/home/notification"
                     },
                     {
                         index: 3,
@@ -132,7 +124,6 @@
                         icon: "el-icon-info",
                         title: "关于",
                         hasNew: false,
-                        path: "/home/settings",
                     }
                 ],
                 option: {
@@ -182,6 +173,9 @@
                 }
                 let result = JSON.parse(e.data);
                 let data = result.data;
+                if (data.type === 2) {
+                    data.content = JSON.parse(data.content);
+                }
                 if (result.type === IM_MESSAGE) {
                     let message = {
                         userID: data.senderID,
@@ -273,7 +267,6 @@
             cropImage() {
                 this.dialogVisible = true;
             },
-            // eslint-disable-next-line no-unused-vars
             changeUpload(file, fileList){
                 const isLt1M = file.size / 1024 / 1024 < 1;
                 if (!isLt1M) {
@@ -293,7 +286,6 @@
                 if (type === 'blob') {
                     this.$refs.cropper.getCropBlob((data) =>{
                         this.user.avatar = URL.createObjectURL(data);
-                        // eslint-disable-next-line no-console
                         console.log(data)
                     })
                 }else {
@@ -334,12 +326,15 @@
                                 });
                                 this.messages.forEach(o => {
                                     o.count = o.messageList.length;
+                                    o.messageList.forEach(o2 => {
+                                        if (o2.type === 2) {
+                                            o2.content = JSON.parse(o2.content);
+                                        }
+                                    })
                                 });
                                 if (this.messages.length > 0) {
                                     this.menus[0].hasNew = true;
                                 }
-                                // eslint-disable-next-line no-console
-                                // console.log(response.data.data);
                                 sessionStorage.setItem(MESSAGES, JSON.stringify(this.messages));
                                 resolve();
                             }).catch(error => {
@@ -438,8 +433,8 @@
             }
         },
         created() {
-            this.getMessages();
             this.initwebsocket();
+            this.getMessages();
             this.getFriends();
             this.getRequests();
             this.getNotifications();
@@ -448,9 +443,6 @@
             this.websocket.close();
         },
         beforeCreate() {
-            this.current = sessionStorage.getItem(HOME_CURRENT);
-            if (this.current === null)
-                this.current = 3;
         },
     }
 
@@ -458,6 +450,7 @@
 
 <style scoped>
     * {
+        font-family: "微软雅黑","Helvetica Neue",Helvetica,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",Arial,sans-serif;
         margin: 0 0;
         border: 0;
     }
@@ -468,19 +461,23 @@
     .home {
         height: 100%;
         width: 100%;
-        background-color: rgba(44,62,80,0.85);
+        background-color: #dededf;
+        box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1)
     }
     .active{
-        color: #409EFF;
+        background-color: darkgray;
     }
     .header {
+        display: flex;
         width: 100%;
-        padding: 0 200px;
+        padding: 0 300px 0 240px;
         background-color: #2c3e50;
+        box-shadow: 0 2px 30px 0 rgba(0, 0, 0, 0.1)
     }
     .header>h1 {
         display: inline-block;
         text-align: center;
+        height: 100%;
         color: aliceblue;
         font-size: xx-large;
     }
@@ -488,35 +485,26 @@
         float: left;
     }
     .sidebar {
-        background-color: #2c3e50;
-        width: 84px;
-        float: left;
+        background-color: dimgray;
+        width: 200px;
+        text-align: left;
         margin-top: 200px;
     }
-    .open {
-        width: 220px;
+    .sidebar-item {
+        padding: 12px 30px;
     }
-    .el-menu-vertical-demo {
-        width: 180px;
-    }
-    .im-menu {
-        margin: 0 0;
-        border: 0;
-        text-align: left;
+    .sidebar-item:hover {
+        background-color: darkgray;
     }
     /deep/ .el-card__body {
-    }
-    .im-menu>i {}
-    .im-menu:not(.el-menu--collapse) {
-        width: 200px;
-        min-height: 168px;
+        padding: 0;
     }
     .body {
         text-align: center;
         margin-left: 100px;
     }
     .footer {
-        margin-top: 70px;
+        margin-top: 20px;
         /*position: absolute;*/
         /*bottom: 0;*/
         /*margin-left: 900px;*/

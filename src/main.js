@@ -5,7 +5,7 @@ import {
   Button,
   Card, Container, DatePicker, Dialog, Divider, Footer,
   Form,
-  FormItem, Header,
+  FormItem, Header, Image,
   Input,
   Link, Loading, Main,
   Menu,
@@ -48,6 +48,7 @@ Vue.use(Main);
 Vue.use(Footer);
 Vue.use(Avatar);
 Vue.use(Popover);
+Vue.use(Image);
 
 Vue.config.productionTip = false;
 

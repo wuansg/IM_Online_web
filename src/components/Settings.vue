@@ -1,10 +1,15 @@
 <template>
     <el-card class="settings">
-        <img style="margin-top: 160px; width: 240px; height: 240px; border-radius: 120px" :src="this.$store.getters.user.avatar">
-        <h2>作者： masiroonen@gmail.com</h2>
-        <h2>github地址： https://github.com/exview</h2>
-        <h2>版本号： 1.0</h2>
-        <h2>本作品仅用于学习，如有其他用途请邮箱联系，谢谢支持。</h2>
+        <div class="settings-header">
+            <el-avatar :size="128" :src="this.$store.getters.user.avatar"/>
+        </div>
+        <div class="settings-body">
+            <span>作者</span> <h2> silverspoon </h2><br/>
+            <span>邮箱地址</span> <h2> masiroonen@gmail.com </h2>
+            <span>github地址</span> <h2> https://github.com/exview</h2><br/>
+            <span>版本号</span> <h2> 1.0</h2><br/>
+            <p>本作品仅用于学习，如有其他用途请邮箱联系，谢谢支持。</p>
+        </div>
     </el-card>
 </template>
 
@@ -31,6 +36,30 @@
     }
     /deep/ .el-card__body {
         padding: 0;
+    }
+    .settings-header {
+        margin: 100px 240px 20px;
+        padding: 10px 20px;
+        border-bottom: 1px solid lightgray
+    }
+    .settings-body {
+        text-align: left;
+        margin: 0 240px;
+        padding: 10px 100px;
+        border-bottom: 1px solid lightgray;
+    }
+    .settings-body>span {
+        display: inline-block;
+        width: 120px;
+        margin: 5px 10px;
+        font-size: 20px;
+    }
+    .settings-body>h2 {
+        display: inline-block;
+    }
+    .settings-body>p {
+        text-align: center;
+        margin: 40px 20px 0;
     }
 
 </style>
