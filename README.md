@@ -4,8 +4,7 @@
 > 此项目为本人毕业设计即时通信在线版的前端项目，基于Element UI和VUE构建。
 > 主要包括实时聊天，好友管理等功能。
 
-#### 项目演示
-在线演示地址：[http://www.silverspoon.xyz](http://www.silverspoon.xyz)
+
 
 #### 项目结构
 ```lua
